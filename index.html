@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="description" content="우리 아이를 위한 건강한 이유식 레시피 검색 앱 - 76개 이상의 레시피">
+    <meta name="theme-color" content="#10B981">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="이유식">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <title>아기 이유식 레시피</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./manifest.json">
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍼</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍼</text></svg>">
+
+    <!-- Preload critical resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#10B981',
+                        secondary: '#F59E0B',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+            overscroll-behavior-y: contain;
+        }
+
+        body.modal-open {
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(100%); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card-hover {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .card-hover:active {
+            transform: scale(0.98);
+        }
+
+        @media (hover: hover) {
+            .card-hover:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+            }
+        }
+
+        .filter-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .filter-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .checkbox-custom {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            border: 2px solid #d1d5db;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .checkbox-custom:checked {
+            background-color: #10B981;
+            border-color: #10B981;
+            background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+        }
+
+        .ingredient-checked {
+            text-decoration: line-through;
+            color: #9ca3af;
+        }
+
+        .star-btn {
+            transition: all 0.2s ease;
+        }
+
+        .star-btn:active {
+            transform: scale(1.2);
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+        }
+
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .install-banner {
+            animation: slideInUp 0.5s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { font-size: 12pt; }
+        }
+
+        /* Safe area for notched phones */
+        @supports (padding: max(0px)) {
+            .safe-bottom {
+                padding-bottom: max(1rem, env(safe-area-inset-bottom));
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+        // ==================== UTILITIES ====================
+
+        // Debounce hook
+        function useDebounce(value, delay) {
+            const [debouncedValue, setDebouncedValue] = useState(value);
+            useEffect(() => {
+                const handler = setTimeout(() => setDebouncedValue(value), delay);
+                return () => clearTimeout(handler);
+            }, [value, delay]);
+            return debouncedValue;
+        }
+
+        // Local Storage hook
+        function useLocalStorage(key, initialValue) {
+            const [storedValue, setStoredValue] = useState(() => {
+                try {
+                    const item = window.localStorage.getItem(key);
+                    return item ? JSON.parse(item) : initialValue;
+                } catch (error) {
+                    return initialValue;
+                }
+            });
+
+            const setValue = useCallback((value) => {
+                try {
+                    const valueToStore = value instanceof Function ? value(storedValue) : value;
+                    setStoredValue(valueToStore);
+                    window.localStorage.setItem(key, JSON.stringify(valueToStore));
+                } catch (error) {
+                    console.error('LocalStorage error:', error);
+                }
+            }, [key, storedValue]);
+
+            return [storedValue, setValue];
+        }
+
+        // Normalize age for filtering
+        function normalizeAge(age) {
+            if (!age) return 'other';
+            if (age.includes('6개월')) return '6개월';
+            if (age.includes('7개월')) return '7개월';
+            if (age.includes('9개월')) return '9개월';
+            if (age.includes('10개월')) return '10개월';
+            if (age.includes('12개월')) return '12개월';
+            if (age.includes('1-2') || age.includes('1~2') || age.includes('1세') || age.includes('2세')) return '1세이상';
+            return 'other';
+        }
+
+        // ==================== COMPONENTS ====================
+
+        // Install Banner Component
+        function InstallBanner({ onInstall, onDismiss }) {
+            return (
+                <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg p-4 z-50 install-banner safe-bottom no-print">
+                    <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 flex-1">
+                            <span className="text-3xl">🍼</span>
+                            <div>
+                                <p className="font-semibold text-gray-800">홈 화면에 추가</p>
+                                <p className="text-sm text-gray-500">오프라인에서도 사용 가능!</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={onDismiss}
+                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                나중에
+                            </button>
+                            <button
+                                onClick={onInstall}
+                                className="px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 transition-colors"
+                            >
+                                설치
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Offline Banner Component
+        function OfflineBanner() {
+            const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+            useEffect(() => {
+                const handleOnline = () => setIsOnline(true);
+                const handleOffline = () => setIsOnline(false);
+                window.addEventListener('online', handleOnline);
+                window.addEventListener('offline', handleOffline);
+                return () => {
+                    window.removeEventListener('online', handleOnline);
+                    window.removeEventListener('offline', handleOffline);
+                };
+            }, []);
+
+            if (isOnline) return null;
+
+            return (
+                <div className="bg-amber-500 text-white text-center py-2 text-sm no-print">
+                    📴 오프라인 모드 - 저장된 레시피를 보고 있습니다
+                </div>
+            );
+        }
+
+        // Header Component
+        function Header({ totalCount, favoritesCount, showFavorites, onToggleFavorites }) {
+            return (
+                <header className="bg-white shadow-sm sticky top-0 z-50 no-print">
+                    <div className="max-w-4xl mx-auto px-4 py-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
+                                    <span className="text-3xl">🍼</span>
+                                    아기 이유식 레시피
+                                </h1>
+                                <p className="text-gray-500 text-sm mt-1">우리 아이를 위한 건강한 레시피</p>
+                            </div>
+                            <button
+                                onClick={onToggleFavorites}
+                                className={`flex flex-col items-center p-2 rounded-xl transition-all min-w-[60px] ${
+                                    showFavorites
+                                        ? 'bg-amber-100 text-amber-600'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                            >
+                                <span className="text-2xl">{showFavorites ? '⭐' : '☆'}</span>
+                                <span className="text-xs font-medium">{favoritesCount}</span>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+            );
+        }
+
+        // SearchBar Component
+        function SearchBar({ searchTerm, onSearchChange }) {
+            const inputRef = useRef(null);
+
+            return (
+                <div className="bg-white border-b border-gray-100 no-print">
+                    <div className="max-w-4xl mx-auto px-4 py-3">
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                            <input
+                                ref={inputRef}
+                                type="search"
+                                inputMode="search"
+                                value={searchTerm}
+                                onChange={(e) => onSearchChange(e.target.value)}
+                                placeholder="재료나 레시피 이름으로 검색..."
+                                className="w-full pl-12 pr-12 py-3.5 text-base rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200 bg-gray-50"
+                                autoComplete="off"
+                                autoCorrect="off"
+                                spellCheck="false"
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => {
+                                        onSearchChange('');
+                                        inputRef.current?.focus();
+                                    }}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                >
+                                    <div className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 active:bg-gray-400 flex items-center justify-center transition-colors">
+                                        <svg className="h-4 w-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </div>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // FilterBar Component
+        function FilterBar({ activeFilters, onFilterChange, ageCounts }) {
+            const filters = [
+                { id: 'all', label: '전체', emoji: '📋' },
+                { id: '6개월', label: '6개월+', emoji: '🥣' },
+                { id: '7개월', label: '7개월+', emoji: '🥄' },
+                { id: '9개월', label: '9개월+', emoji: '🍲' },
+                { id: '10개월', label: '10개월+', emoji: '🍜' },
+                { id: '12개월', label: '12개월+', emoji: '🍝' },
+                { id: '1세이상', label: '1세이상', emoji: '🍱' },
+            ];
+
+            const handleFilterClick = (filterId) => {
+                if (filterId === 'all') {
+                    onFilterChange(['all']);
+                } else {
+                    let newFilters = activeFilters.filter(f => f !== 'all');
+                    if (newFilters.includes(filterId)) {
+                        newFilters = newFilters.filter(f => f !== filterId);
+                    } else {
+                        newFilters = [...newFilters, filterId];
+                    }
+                    if (newFilters.length === 0) {
+                        newFilters = ['all'];
+                    }
+                    onFilterChange(newFilters);
+                }
+            };
+
+            return (
+                <div className="bg-white border-b border-gray-100 no-print">
+                    <div className="max-w-4xl mx-auto px-4 py-3">
+                        <div className="flex gap-2 overflow-x-auto filter-scroll pb-1">
+                            {filters.map((filter) => {
+                                const isActive = activeFilters.includes(filter.id);
+                                const count = filter.id === 'all' ? ageCounts.total : (ageCounts[filter.id] || 0);
+
+                                if (filter.id !== 'all' && count === 0) return null;
+
+                                return (
+                                    <button
+                                        key={filter.id}
+                                        onClick={() => handleFilterClick(filter.id)}
+                                        className={`flex-shrink-0 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1.5 min-h-[44px] ${
+                                            isActive
+                                                ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'
+                                        }`}
+                                    >
+                                        <span>{filter.emoji}</span>
+                                        <span>{filter.label}</span>
+                                        <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${
+                                            isActive ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-500'
+                                        }`}>
+                                            {count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Category Filter Component
+        function CategoryFilter({ activeCategory, onCategoryChange, categoryCounts }) {
+            const categories = [
+                { id: 'all', label: '전체 단계' },
+                { id: '초기', label: '초기' },
+                { id: '중기', label: '중기' },
+                { id: '후기', label: '후기' },
+                { id: '완료기', label: '완료기' },
+            ];
+
+            return (
+                <div className="max-w-4xl mx-auto px-4 py-2 no-print">
+                    <div className="flex gap-2 overflow-x-auto filter-scroll">
+                        {categories.map((cat) => {
+                            const count = cat.id === 'all' ? categoryCounts.total : (categoryCounts[cat.id] || 0);
+                            const isActive = activeCategory === cat.id;
+
+                            return (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => onCategoryChange(cat.id)}
+                                    className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 min-h-[36px] ${
+                                        isActive
+                                            ? 'bg-gray-800 text-white'
+                                            : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300'
+                                    }`}
+                                >
+                                    {cat.label} ({count})
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
+        // Age Badge Component
+        function AgeBadge({ age, category, size = 'sm' }) {
+            const getBadgeColor = () => {
+                if (category === '초기') return 'bg-green-100 text-green-700 border-green-200';
+                if (category === '중기') return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+                if (category === '후기') return 'bg-orange-100 text-orange-700 border-orange-200';
+                if (category === '완료기') return 'bg-red-100 text-red-700 border-red-200';
+                return 'bg-gray-100 text-gray-700 border-gray-200';
+            };
+
+            const sizeClasses = size === 'lg' ? 'px-3 py-1.5 text-sm' : 'px-2.5 py-1 text-xs';
+
+            return (
+                <span className={`inline-flex items-center rounded-full font-medium border ${getBadgeColor()} ${sizeClasses}`}>
+                    {age}
+                </span>
+            );
+        }
+
+        // Skeleton Card Component
+        function SkeletonCard() {
+            return (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                    <div className="flex justify-between items-start mb-3">
+                        <div className="skeleton h-6 w-3/4 rounded"></div>
+                        <div className="skeleton h-6 w-16 rounded-full"></div>
+                    </div>
+                    <div className="skeleton h-4 w-24 rounded mb-3"></div>
+                    <div className="flex gap-2">
+                        <div className="skeleton h-7 w-16 rounded-lg"></div>
+                        <div className="skeleton h-7 w-16 rounded-lg"></div>
+                        <div className="skeleton h-7 w-16 rounded-lg"></div>
+                    </div>
+                </div>
+            );
+        }
+
+        // RecipeCard Component
+        function RecipeCard({ recipe, onClick, isFavorite, onToggleFavorite }) {
+            const previewIngredients = recipe.ingredients.slice(0, 3);
+            const hasMoreIngredients = recipe.ingredients.length > 3;
+
+            const handleFavoriteClick = (e) => {
+                e.stopPropagation();
+                onToggleFavorite(recipe.id);
+            };
+
+            return (
+                <div
+                    onClick={() => onClick(recipe)}
+                    className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 cursor-pointer card-hover fade-in relative"
+                >
+                    {/* Favorite Button */}
+                    <button
+                        onClick={handleFavoriteClick}
+                        className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 hover:bg-gray-100 star-btn z-10"
+                        aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+                    >
+                        <span className={`text-xl ${isFavorite ? 'text-amber-400' : 'text-gray-300'}`}>
+                            {isFavorite ? '★' : '☆'}
+                        </span>
+                    </button>
+
+                    <div className="pr-12">
+                        <h3 className="text-lg font-semibold text-gray-800 leading-tight mb-2">
+                            {recipe.title}
+                        </h3>
+                        <div className="flex items-center gap-2 mb-3">
+                            <AgeBadge age={recipe.age} category={recipe.category} />
+                            <span className="text-xs text-gray-500">
+                                {recipe.category} · {recipe.steps.length}단계
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                        {previewIngredients.map((ingredient, idx) => (
+                            <span
+                                key={idx}
+                                className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 text-sm"
+                            >
+                                {ingredient.split(' ')[0]}
+                            </span>
+                        ))}
+                        {hasMoreIngredients && (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-sm font-medium">
+                                +{recipe.ingredients.length - 3}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // RecipeDetail Modal Component
+        function RecipeDetail({ recipe, onClose, isFavorite, onToggleFavorite }) {
+            const [checkedIngredients, setCheckedIngredients] = useState({});
+            const [checkedSteps, setCheckedSteps] = useState({});
+
+            useEffect(() => {
+                if (recipe) {
+                    document.body.classList.add('modal-open');
+                    const handleEsc = (e) => {
+                        if (e.key === 'Escape') onClose();
+                    };
+                    window.addEventListener('keydown', handleEsc);
+                    return () => {
+                        document.body.classList.remove('modal-open');
+                        window.removeEventListener('keydown', handleEsc);
+                    };
+                }
+            }, [recipe, onClose]);
+
+            useEffect(() => {
+                setCheckedIngredients({});
+                setCheckedSteps({});
+            }, [recipe?.id]);
+
+            if (!recipe) return null;
+
+            const toggleIngredient = (idx) => {
+                setCheckedIngredients(prev => ({ ...prev, [idx]: !prev[idx] }));
+            };
+
+            const toggleStep = (idx) => {
+                setCheckedSteps(prev => ({ ...prev, [idx]: !prev[idx] }));
+            };
+
+            const checkedCount = Object.values(checkedIngredients).filter(Boolean).length;
+            const totalIngredients = recipe.ingredients.length;
+
+            return (
+                <div className="fixed inset-0 z-50 overflow-hidden" onClick={onClose}>
+                    <div className="absolute inset-0 bg-black/60 transition-opacity" />
+                    <div className="absolute inset-0 overflow-y-auto">
+                        <div className="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4">
+                            <div
+                                className="relative bg-white w-full sm:max-w-lg sm:rounded-3xl rounded-t-3xl shadow-2xl slide-up max-h-[95vh] sm:max-h-[90vh] flex flex-col"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {/* Header */}
+                                <div className="sticky top-0 bg-white rounded-t-3xl border-b border-gray-100 px-5 py-4 flex items-center justify-between z-10 no-print">
+                                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-300 rounded-full sm:hidden" />
+
+                                    <button
+                                        onClick={onClose}
+                                        className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                                        aria-label="닫기"
+                                    >
+                                        <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+
+                                    <h2 className="text-lg font-bold text-gray-800 flex-1 text-center px-2 truncate">
+                                        {recipe.title}
+                                    </h2>
+
+                                    <button
+                                        onClick={() => onToggleFavorite(recipe.id)}
+                                        className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors star-btn"
+                                        aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+                                    >
+                                        <span className={`text-xl ${isFavorite ? 'text-amber-400' : 'text-gray-400'}`}>
+                                            {isFavorite ? '★' : '☆'}
+                                        </span>
+                                    </button>
+                                </div>
+
+                                {/* Content */}
+                                <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+                                    {/* Badges */}
+                                    <div className="flex flex-wrap gap-2">
+                                        <AgeBadge age={recipe.age} category={recipe.category} size="lg" />
+                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                                            {recipe.category}
+                                        </span>
+                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-blue-50 text-blue-600 border border-blue-200">
+                                            {recipe.steps.length}단계
+                                        </span>
+                                    </div>
+
+                                    {/* Ingredients */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                                <span className="text-xl">🥕</span> 재료
+                                            </h3>
+                                            <span className="text-sm text-gray-500">
+                                                {checkedCount}/{totalIngredients} 준비완료
+                                            </span>
+                                        </div>
+
+                                        <div className="w-full h-2 bg-gray-100 rounded-full mb-4 overflow-hidden">
+                                            <div
+                                                className="h-full bg-primary rounded-full transition-all duration-300"
+                                                style={{ width: `${(checkedCount / totalIngredients) * 100}%` }}
+                                            />
+                                        </div>
+
+                                        <ul className="bg-green-50 rounded-xl p-4 space-y-3">
+                                            {recipe.ingredients.map((ingredient, idx) => (
+                                                <li
+                                                    key={idx}
+                                                    className="flex items-center gap-3 cursor-pointer"
+                                                    onClick={() => toggleIngredient(idx)}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checkedIngredients[idx] || false}
+                                                        onChange={() => toggleIngredient(idx)}
+                                                        className="checkbox-custom"
+                                                    />
+                                                    <span className={`flex-1 text-gray-700 transition-all ${
+                                                        checkedIngredients[idx] ? 'ingredient-checked' : ''
+                                                    }`}>
+                                                        {ingredient}
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
+                                    {/* Steps */}
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                            <span className="text-xl">👩‍🍳</span> 조리 방법
+                                        </h3>
+                                        <ol className="space-y-4">
+                                            {recipe.steps.map((step, idx) => (
+                                                <li
+                                                    key={idx}
+                                                    className={`flex gap-4 p-4 rounded-xl transition-all cursor-pointer ${
+                                                        checkedSteps[idx]
+                                                            ? 'bg-green-50 border-2 border-green-200'
+                                                            : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                                                    }`}
+                                                    onClick={() => toggleStep(idx)}
+                                                >
+                                                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 transition-colors ${
+                                                        checkedSteps[idx] ? 'bg-primary text-white' : 'bg-gray-300 text-white'
+                                                    }`}>
+                                                        {checkedSteps[idx] ? '✓' : idx + 1}
+                                                    </span>
+                                                    <p className={`flex-1 text-gray-700 leading-relaxed text-base ${
+                                                        checkedSteps[idx] ? 'text-gray-500' : ''
+                                                    }`}>
+                                                        {step}
+                                                    </p>
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    </div>
+
+                                    {/* Tips */}
+                                    {recipe.tips && recipe.tips.length > 0 && (
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                                                <span className="text-xl">💡</span> 조리 팁
+                                            </h3>
+                                            <div className="bg-amber-50 rounded-xl p-4 space-y-3 border-l-4 border-amber-400">
+                                                {recipe.tips.map((tip, idx) => (
+                                                    <p key={idx} className="text-gray-700 leading-relaxed">{tip}</p>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="sticky bottom-0 bg-white border-t border-gray-100 px-5 py-4 safe-bottom no-print">
+                                    <button
+                                        onClick={onClose}
+                                        className="w-full py-4 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 active:bg-primary/80 transition-colors text-lg"
+                                    >
+                                        목록으로 돌아가기
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // RecipeList Component
+        function RecipeList({ recipes, onRecipeClick, favorites, onToggleFavorite, loading }) {
+            if (loading) {
+                return (
+                    <div className="max-w-4xl mx-auto px-4 py-4 pb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[1, 2, 3, 4, 5, 6].map((i) => (
+                                <SkeletonCard key={i} />
+                            ))}
+                        </div>
+                    </div>
+                );
+            }
+
+            if (recipes.length === 0) {
+                return (
+                    <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+                        <div className="text-6xl mb-4">🔍</div>
+                        <h3 className="text-xl font-semibold text-gray-700 mb-2">검색 결과 없음</h3>
+                        <p className="text-gray-500 mb-6">
+                            조건에 맞는 레시피를 찾을 수 없습니다.
+                            <br />다른 조건으로 검색해보세요.
+                        </p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-4xl mx-auto px-4 py-4 pb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {recipes.map((recipe) => (
+                            <RecipeCard
+                                key={recipe.id}
+                                recipe={recipe}
+                                onClick={onRecipeClick}
+                                isFavorite={favorites.includes(recipe.id)}
+                                onToggleFavorite={onToggleFavorite}
+                            />
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // Results Summary Component
+        function ResultsSummary({ total, filtered, searchTerm, showFavorites }) {
+            return (
+                <div className="max-w-4xl mx-auto px-4 py-2">
+                    <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">
+                            {showFavorites && <span className="text-amber-500 font-medium">⭐ 즐겨찾기 </span>}
+                            {searchTerm && <span>"{searchTerm}" </span>}
+                            검색 결과: <span className="font-semibold text-primary">{filtered}개</span>
+                            {!showFavorites && <span className="text-gray-400"> / 전체 {total}개</span>}
+                        </span>
+                    </div>
+                </div>
+            );
+        }
+
+        // ==================== MAIN APP ====================
+
+        function App() {
+            const [recipes, setRecipes] = useState([]);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [selectedRecipe, setSelectedRecipe] = useState(null);
+            const [activeFilters, setActiveFilters] = useLocalStorage('ageFilters', ['all']);
+            const [activeCategory, setActiveCategory] = useLocalStorage('categoryFilter', 'all');
+            const [favorites, setFavorites] = useLocalStorage('favorites', []);
+            const [showFavorites, setShowFavorites] = useState(false);
+            const [loading, setLoading] = useState(true);
+            const [installPrompt, setInstallPrompt] = useState(null);
+            const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+            // Debounced search
+            const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+            // Load recipes
+            useEffect(() => {
+                fetch('./src/data/recipes.json')
+                    .then(response => response.json())
+                    .then(data => {
+                        setRecipes(data);
+                        setLoading(false);
+                    })
+                    .catch(error => {
+                        console.error('Error loading recipes:', error);
+                        setLoading(false);
+                    });
+            }, []);
+
+            // PWA Install prompt
+            useEffect(() => {
+                const handler = (e) => {
+                    e.preventDefault();
+                    setInstallPrompt(e);
+                    const dismissed = localStorage.getItem('installDismissed');
+                    if (!dismissed) {
+                        setShowInstallBanner(true);
+                    }
+                };
+                window.addEventListener('beforeinstallprompt', handler);
+                return () => window.removeEventListener('beforeinstallprompt', handler);
+            }, []);
+
+            // Check for favorites filter from URL
+            useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('filter') === 'favorites') {
+                    setShowFavorites(true);
+                }
+            }, []);
+
+            const handleInstall = async () => {
+                if (!installPrompt) return;
+                installPrompt.prompt();
+                const result = await installPrompt.userChoice;
+                if (result.outcome === 'accepted') {
+                    setShowInstallBanner(false);
+                }
+                setInstallPrompt(null);
+            };
+
+            const handleDismissInstall = () => {
+                setShowInstallBanner(false);
+                localStorage.setItem('installDismissed', 'true');
+            };
+
+            const toggleFavorite = useCallback((recipeId) => {
+                setFavorites(prev =>
+                    prev.includes(recipeId)
+                        ? prev.filter(id => id !== recipeId)
+                        : [...prev, recipeId]
+                );
+            }, [setFavorites]);
+
+            // Calculate counts
+            const ageCounts = useMemo(() => {
+                const counts = { total: recipes.length };
+                recipes.forEach(recipe => {
+                    const normalized = normalizeAge(recipe.age);
+                    counts[normalized] = (counts[normalized] || 0) + 1;
+                });
+                return counts;
+            }, [recipes]);
+
+            const categoryCounts = useMemo(() => {
+                const counts = { total: recipes.length };
+                recipes.forEach(recipe => {
+                    counts[recipe.category] = (counts[recipe.category] || 0) + 1;
+                });
+                return counts;
+            }, [recipes]);
+
+            // Filter recipes
+            const filteredRecipes = useMemo(() => {
+                return recipes.filter(recipe => {
+                    // Favorites filter
+                    if (showFavorites && !favorites.includes(recipe.id)) return false;
+
+                    // Search filter
+                    const searchLower = debouncedSearchTerm.toLowerCase();
+                    const matchesSearch = debouncedSearchTerm === '' ||
+                        recipe.title.toLowerCase().includes(searchLower) ||
+                        recipe.ingredients.some(ing => ing.toLowerCase().includes(searchLower));
+
+                    // Age filter
+                    const matchesAge = activeFilters.includes('all') ||
+                        activeFilters.includes(normalizeAge(recipe.age));
+
+                    // Category filter
+                    const matchesCategory = activeCategory === 'all' || recipe.category === activeCategory;
+
+                    return matchesSearch && matchesAge && matchesCategory;
+                });
+            }, [recipes, debouncedSearchTerm, activeFilters, activeCategory, showFavorites, favorites]);
+
+            const handleCloseDetail = useCallback(() => {
+                setSelectedRecipe(null);
+            }, []);
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <OfflineBanner />
+                    <Header
+                        totalCount={recipes.length}
+                        favoritesCount={favorites.length}
+                        showFavorites={showFavorites}
+                        onToggleFavorites={() => setShowFavorites(!showFavorites)}
+                    />
+                    <SearchBar
+                        searchTerm={searchTerm}
+                        onSearchChange={setSearchTerm}
+                    />
+                    {!showFavorites && (
+                        <>
+                            <FilterBar
+                                activeFilters={activeFilters}
+                                onFilterChange={setActiveFilters}
+                                ageCounts={ageCounts}
+                            />
+                            <CategoryFilter
+                                activeCategory={activeCategory}
+                                onCategoryChange={setActiveCategory}
+                                categoryCounts={categoryCounts}
+                            />
+                        </>
+                    )}
+                    <ResultsSummary
+                        total={recipes.length}
+                        filtered={filteredRecipes.length}
+                        searchTerm={debouncedSearchTerm}
+                        showFavorites={showFavorites}
+                    />
+                    <RecipeList
+                        recipes={filteredRecipes}
+                        onRecipeClick={setSelectedRecipe}
+                        favorites={favorites}
+                        onToggleFavorite={toggleFavorite}
+                        loading={loading}
+                    />
+                    <RecipeDetail
+                        recipe={selectedRecipe}
+                        onClose={handleCloseDetail}
+                        isFavorite={selectedRecipe ? favorites.includes(selectedRecipe.id) : false}
+                        onToggleFavorite={toggleFavorite}
+                    />
+                    {showInstallBanner && (
+                        <InstallBanner
+                            onInstall={handleInstall}
+                            onDismiss={handleDismissInstall}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('SW registered:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('SW registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
